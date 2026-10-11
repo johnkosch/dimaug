@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Diminished and Augmented Triad Spelling</title>
+<style>
+  :root { --focus: #005fcc; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: Arial, Helvetica, sans-serif;
+    margin: 0;
+    background: #fff;
+    color: #111;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  main {
+    width: min(760px, 94vw);
+    padding: 36px 28px 44px;
+    text-align: center;
+  }
+  h1 { font-size: 2.25rem; margin: 0 0 28px; }
+  #prompt {
+    font-size: 3rem;
+    font-weight: 700;
+    margin: 24px 0 24px;
+    min-height: 1.3em;
+  }
+  #tally {
+    display: flex;
+    justify-content: center;
+    gap: 18px;
+    margin: 10px 0 28px;
+  }
+  .pitch-slot {
+    width: 112px;
+    height: 82px;
+    border: 4px solid #555;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    font-weight: 800;
+    background: #f5f5f5;
+    transition: background 0.15s ease, border-color 0.15s ease;
+  }
+  .pitch-slot.filled {
+    background: #dff3df;
+    border-color: #287a2c;
+  }
+  @media (max-width: 480px) {
+    #tally { gap: 9px; }
+    .pitch-slot {
+      width: 30vw;
+      max-width: 105px;
+      height: 72px;
+      font-size: 1.65rem;
+    }
+  }
+  #status {
+    font-size: 1.6rem;
+    font-weight: 700;
+    min-height: 1.4em;
+    margin: 18px 0;
+  }
+  #answer {
+    width: min(620px, 100%);
+    font-size: 1.7rem;
+    padding: 18px 20px;
+    border: 3px solid #333;
+    border-radius: 10px;
+    text-align: center;
+  }
+  button {
+    font-size: 1.35rem;
+    padding: 16px 28px;
+    border: 2px solid #333;
+    border-radius: 10px;
+    background: #f3f3f3;
+    cursor: pointer;
+    margin: 8px;
+  }
+  button:hover { background: #e8e8e8; }
+  button:focus, input:focus {
+    outline: 4px solid var(--focus);
+    outline-offset: 3px;
+  }
+  #start {
+    font-size: 1.5rem;
+    padding: 18px 34px;
+  }
+  .controls {
+    margin-top: 28px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  label {
+    font-size: 1.15rem;
+    cursor: pointer;
+  }
+  #instructions {
+    font-size: 1.05rem;
+    line-height: 1.5;
+    margin-top: 25px;
+  }
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Diminished and Augmented Triad Spelling</h1>
+
+  <div id="prompt" aria-live="assertive">Press Enter to hear the prompt.</div>
+
+  <div id="tally" aria-live="polite" aria-label="0 of 3 pitches spelled correctly">
+    <div class="pitch-slot" id="slot0" aria-hidden="true">1</div>
+    <div class="pitch-slot" id="slot1" aria-hidden="true">2</div>
+    <div class="pitch-slot" id="slot2" aria-hidden="true">3</div>
+  </div>
+
+  <button id="start" type="button">Start Prompt</button>
+
+  <div id="exercise" class="hidden">
+    <input
+      id="answer"
+      type="text"
+      autocomplete="off"
+      autocapitalize="off"
+      spellcheck="false"
+      aria-label="Enter the chord pitch or all three pitches"
+    >
+    <div>
+      <button id="submit" type="button">Submit</button>
+    </div>
+  </div>
+
+  <div id="status" aria-live="assertive"></div>
+
+  <div class="controls">
+    <label>
+      <input id="voiceover" type="checkbox" checked>
+      Voiceover
+    </label>
+  </div>
+
+  <div id="instructions">
+    Spell the requested diminished or augmented triad. Enter one pitch at a time, starting from the root, or enter all three pitches separated by spaces.
+  </div>
+</main>
+
+<script>
+(() => {
+  // Only triads whose correct spelling uses at most one sharp or flat per note.
+  // Answers are checked by exact note spelling; enharmonic substitutions are not accepted.
+  const chords = [
+    // Diminished triads
+    { display: "C", quality: "diminished", pitches: ["C", "Eb", "Gb"] },
+    { display: "C-sharp", quality: "diminished", pitches: ["C#", "E", "G"] },
+    { display: "D", quality: "diminished", pitches: ["D", "F", "Ab"] },
+    { display: "D-sharp", quality: "diminished", pitches: ["D#", "F#", "A"] },
+    { display: "E", quality: "diminished", pitches: ["E", "G", "Bb"] },
+    { display: "F", quality: "diminished", pitches: ["F", "Ab", "Cb"] },
+    { display: "F-sharp", quality: "diminished", pitches: ["F#", "A", "C"] },
+    { display: "G", quality: "diminished", pitches: ["G", "Bb", "Db"] },
+    { display: "G-sharp", quality: "diminished", pitches: ["G#", "B", "D"] },
+    { display: "A", quality: "diminished", pitches: ["A", "C", "Eb"] },
+    { display: "B-flat", quality: "diminished", pitches: ["Bb", "Db", "Fb"] },
+    { display: "B", quality: "diminished", pitches: ["B", "D", "F"] },
+
+    // Augmented triads
+    { display: "C", quality: "augmented", pitches: ["C", "E", "G#"] },
+    { display: "D-flat", quality: "augmented", pitches: ["Db", "F", "A"] },
+    { display: "D", quality: "augmented", pitches: ["D", "F#", "A#"] },
+    { display: "E-flat", quality: "augmented", pitches: ["Eb", "G", "B"] },
+    { display: "E", quality: "augmented", pitches: ["E", "G#", "B#"] },
+    { display: "F", quality: "augmented", pitches: ["F", "A", "C#"] },
+    { display: "G", quality: "augmented", pitches: ["G", "B", "D#"] },
+    { display: "A-flat", quality: "augmented", pitches: ["Ab", "C", "E"] },
+    { display: "A", quality: "augmented", pitches: ["A", "C#", "E#"] },
+    { display: "B-flat", quality: "augmented", pitches: ["Bb", "D", "F#"] }
+  ];
+
+  const prompt = document.getElementById("prompt");
+  const answer = document.getElementById("answer");
+  const submit = document.getElementById("submit");
+  const start = document.getElementById("start");
+  const exercise = document.getElementById("exercise");
+  const status = document.getElementById("status");
+  const voiceover = document.getElementById("voiceover");
+  const tally = document.getElementById("tally");
+  const slots = [
+    document.getElementById("slot0"),
+    document.getElementById("slot1"),
+    document.getElementById("slot2")
+  ];
+
+  let current = null;
+  let entered = [];
+  let started = false;
+  let advancing = false;
+  let correctPitchCount = 0;
+
+  function speak(text, interrupt = true) {
+    if (!voiceover.checked || !("speechSynthesis" in window)) return;
+    if (interrupt) speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 0.92;
+    utterance.pitch = 1;
+    speechSynthesis.speak(utterance);
+  }
+
+  function updateTally() {
+    slots.forEach((slot, index) => {
+      const filled = index < entered.length;
+      slot.classList.toggle("filled", filled);
+      slot.textContent = filled ? "✓" : String(index + 1);
+    });
+    tally.setAttribute(
+      "aria-label",
+      `${entered.length} of 3 pitches spelled correctly`
+    );
+  }
+
+  function randomChord() {
+    return chords[Math.floor(Math.random() * chords.length)];
+  }
+
+  function newPrompt(speakIt = true) {
+    current = randomChord();
+    entered = [];
+    advancing = false;
+    answer.value = "";
+    updateTally();
+    status.textContent = "";
+    prompt.textContent = `${current.display} ${current.quality}`;
+    exercise.classList.remove("hidden");
+    answer.focus();
+
+    if (speakIt) {
+      speak(`${current.display} ${current.quality}`);
+    }
+  }
+
+  function normalizePitch(raw) {
+    let s = raw.trim()
+      .replace(/[–—−]/g, "-")
+      .replace(/\s+/g, "")
+      .toLowerCase();
+
+    if (!s) return null;
+
+    // Normalize common written accidental variations:
+    // F sharp, F-sharp, F#, f# -> f#
+    s = s.replace(/-sharp/g, "#")
+         .replace(/sharp/g, "#")
+         .replace(/-flat/g, "b")
+         .replace(/flat/g, "b");
+
+    // Remove hyphens left over from forms such as "F-sharp".
+    s = s.replace(/-/g, "");
+
+    const m = s.match(/^([a-g])([#b]?)$/);
+    if (!m) return null;
+
+    return m[1].toUpperCase() + (m[2] || "");
+  }
+
+  function parseEntries(text) {
+    // Spaces are the primary separator for all-three entry.
+    // Also tolerate commas without changing the one-at-a-time behavior.
+    return text.trim().split(/[,\s]+/).filter(Boolean).map(normalizePitch);
+  }
+
+  function pitchSpoken(pitch) {
+    if (!pitch) return "";
+    const letter = pitch[0];
+    if (pitch[1] === "#") return `${letter} sharp`;
+    if (pitch[1] === "b") return `${letter} flat`;
+    return letter;
+  }
+
+  function processAnswer() {
+    if (!current || advancing) return;
+
+    const raw = answer.value.trim();
+    if (!raw) return;
+
+    const tokens = parseEntries(raw);
+    if (tokens.some(x => !x)) {
+      status.textContent = "incorrect";
+      speak("incorrect");
+      answer.select();
+      return;
+    }
+
+    // If the student enters all three at once, require exact ordered spelling.
+    if (tokens.length > 1) {
+      const expected = current.pitches;
+      const correct = tokens.length === 3 &&
+                      tokens.every((p, i) => p === expected[i]);
+
+      if (correct) {
+        entered = [...expected];
+        updateTally();
+        completeChord();
+      } else {
+        status.textContent = "incorrect";
+        speak("incorrect");
+        answer.select();
+      }
+      return;
+    }
+
+    // One-at-a-time mode.
+    const pitch = tokens[0];
+    const expected = current.pitches[entered.length];
+
+    if (pitch === expected) {
+      entered.push(pitch);
+      updateTally();
+      answer.value = "";
+
+      if (entered.length === 3) {
+        completeChord();
+      } else {
+        status.textContent = "correct";
+        speak("correct");
+        answer.focus();
+      }
+    } else {
+      status.textContent = "incorrect";
+      speak("incorrect");
+      answer.select();
+    }
+  }
+
+  function completeChord() {
+    advancing = true;
+    status.textContent = "chord complete";
+    speak("chord complete");
+
+    // Wait for the speech to finish before generating the next prompt.
+    if (voiceover.checked && "speechSynthesis" in window) {
+      const waitForSpeech = () => {
+        if (speechSynthesis.speaking || speechSynthesis.pending) {
+          setTimeout(waitForSpeech, 40);
+        } else {
+          newPrompt(true);
+        }
+      };
+      setTimeout(waitForSpeech, 40);
+    } else {
+      setTimeout(() => newPrompt(false), 350);
+    }
+  }
+
+  function begin() {
+    if (!started) {
+      started = true;
+      start.classList.add("hidden");
+      exercise.classList.remove("hidden");
+      newPrompt(true);
+    } else {
+      speak(`${current.display} ${current.quality}`);
+    }
+  }
+
+  start.addEventListener("click", begin);
+  submit.addEventListener("click", processAnswer);
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      if (!started) {
+        e.preventDefault();
+        begin();
+      } else if (document.activeElement === answer) {
+        e.preventDefault();
+        processAnswer();
+      }
+    }
+  });
+
+  voiceover.addEventListener("change", () => {
+    if (!voiceover.checked && "speechSynthesis" in window) {
+      speechSynthesis.cancel();
+    }
+  });
+})();
+</script>
+</body>
+</html>
